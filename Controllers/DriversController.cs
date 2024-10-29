@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using RepositoryPatternAndUnitOfWork.Core;
 using RepositoryPatternAndUnitOfWork.Data;
 using RepositoryPatternAndUnitOfWork.Models;
 
@@ -10,23 +11,23 @@ namespace RepositoryPatternAndUnitOfWork.Controllers
     [ApiController]
     public class DriversController : ControllerBase
     {
-        private readonly ApplicationDbContext _dbContext;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public DriversController(ApplicationDbContext dbContext)
+        public DriversController(IUnitOfWork unitOfWork)
         {
-            _dbContext = dbContext;
+           _unitOfWork = unitOfWork;
         }
 
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            return Ok(await _dbContext.Drivers.ToListAsync());    
+            return Ok(await _unitOfWork.Drivers.GetAll());    
         }
 
         [HttpGet("GetById")]
         public async Task<IActionResult> GetById(int id)
         {
-            var driver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == id);
+            var driver = await _unitOfWork.Drivers.GetById(id);
             if(driver == null) return NotFound();
             return Ok(driver);
         }
@@ -35,21 +36,21 @@ namespace RepositoryPatternAndUnitOfWork.Controllers
 
         public async  Task<IActionResult> AddDriver(Driver driver)
         {
-            _dbContext.Drivers.Add(driver);
-            await _dbContext.SaveChangesAsync();
+            await _unitOfWork.Drivers.Add(driver);
+            await _unitOfWork.CompleteAsync();
             return Ok("Success");
         }
 
         [HttpDelete("DeleteDriver")]
         public async Task<IActionResult> DeleteDriver(int id) 
-        { 
-            var driver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == id);
-            if(driver is null)
+        {
+            var driver = await _unitOfWork.Drivers.GetById(id);
+            if (driver is null)
             {
                 return NotFound("Id not found");
             }
-            _dbContext.Drivers.Remove(driver);
-            await _dbContext.SaveChangesAsync();
+            await _unitOfWork.Drivers.Delete(driver);
+            await _unitOfWork.CompleteAsync();
             return Ok("Deleted");
         }
 
@@ -57,16 +58,13 @@ namespace RepositoryPatternAndUnitOfWork.Controllers
 
         public async Task<IActionResult> UpdateDriver(Driver driver)
         {
-            var existingDriver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == driver.Id);
+            var existingDriver = await _unitOfWork.Drivers.GetById(driver.Id);
             if (existingDriver is null)
             {
                 return NotFound("Id not found");
             }
-            existingDriver.DriverName= driver.DriverName;
-            existingDriver.DriverNumber= driver.DriverNumber;
-            existingDriver.Team = driver.Team;
-            _dbContext.Drivers.Update(existingDriver);
-            await _dbContext.SaveChangesAsync();
+           await _unitOfWork.Drivers.Update(driver);
+           await _unitOfWork.CompleteAsync();
             return Ok("Success");
         }
 
