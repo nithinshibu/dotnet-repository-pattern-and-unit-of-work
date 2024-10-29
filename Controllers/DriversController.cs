@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using RepositoryPatternAndUnitOfWork.Data;
 using RepositoryPatternAndUnitOfWork.Models;
 
 namespace RepositoryPatternAndUnitOfWork.Controllers
@@ -8,63 +10,63 @@ namespace RepositoryPatternAndUnitOfWork.Controllers
     [ApiController]
     public class DriversController : ControllerBase
     {
+        private readonly ApplicationDbContext _dbContext;
 
-        private static List<Driver> _drivers = new List<Driver>() 
-        { 
-            new Driver() { Id=1,DriverName="Lewis Hamilton",Team="Mercedes AMG F1",DriverNumber=44 } ,
-            new Driver() { Id=2,DriverName="George Russel",Team="Mercedes AMG F1",DriverNumber=63 } ,
-            new Driver() { Id=3,DriverName="Sebastian Vettel",Team="Auston Martin",DriverNumber=5 } ,
-        
-        };
-
-        public DriversController()
+        public DriversController(ApplicationDbContext dbContext)
         {
-                
+            _dbContext = dbContext;
         }
 
         [HttpGet]
-        public IActionResult Get()
+        public async Task<IActionResult> Get()
         {
-            return Ok(_drivers);    
+            return Ok(await _dbContext.Drivers.ToListAsync());    
         }
 
         [HttpGet("GetById")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            return Ok(_drivers.FirstOrDefault(x=>x.Id==id));
+            var driver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == id);
+            if(driver == null) return NotFound();
+            return Ok(driver);
         }
         
         [HttpPost("AddDriver")]
 
-        public IActionResult AddDriver(Driver driver)
+        public async  Task<IActionResult> AddDriver(Driver driver)
         {
-            _drivers.Add(driver);
+            _dbContext.Drivers.Add(driver);
+            await _dbContext.SaveChangesAsync();
             return Ok("Success");
         }
 
         [HttpDelete("DeleteDriver")]
-        public IActionResult DeleteDriver(int id) 
+        public async Task<IActionResult> DeleteDriver(int id) 
         { 
-            var driver = _drivers.FirstOrDefault(x=>x.Id==id);
+            var driver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == id);
             if(driver is null)
             {
                 return NotFound("Id not found");
             }
-            _drivers.Remove(driver);
+            _dbContext.Drivers.Remove(driver);
+            await _dbContext.SaveChangesAsync();
             return Ok("Deleted");
         }
 
         [HttpPatch("UpdateDriver")]
 
-        public IActionResult UpdateDriver(Driver driver)
+        public async Task<IActionResult> UpdateDriver(Driver driver)
         {
-            var driverData = _drivers.FirstOrDefault(x => x.Id == driver.Id);
-            if (driverData is null)
+            var existingDriver = await _dbContext.Drivers.FirstOrDefaultAsync(x => x.Id == driver.Id);
+            if (existingDriver is null)
             {
                 return NotFound("Id not found");
             }
-            _drivers.Remove(driverData);
-            _drivers.Add(driverData);
+            existingDriver.DriverName= driver.DriverName;
+            existingDriver.DriverNumber= driver.DriverNumber;
+            existingDriver.Team = driver.Team;
+            _dbContext.Drivers.Update(existingDriver);
+            await _dbContext.SaveChangesAsync();
             return Ok("Success");
         }
 
